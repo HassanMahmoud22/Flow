@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .log { background: #f5f5f5; border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { margin: 5px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Debug Test</h1>
+    <button onclick="connectToFlow()">Connect to Flow</button>
+    <button onclick="clearLog()">Clear Log</button>
+    <div id="log" class="log"></div>
+
+    <script>
+        let socket = null;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            logDiv.appendChild(div);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function connectToFlow() {
+            try {
+                // Use an existing flow ID or create a test one
+                const flowId = 'fJ8iIvl1ck61f'; // Use an existing flow ID
+                const wsUrl = `ws://${window.location.host}/flows/${flowId}/`;
+                
+                log(`Connecting to: ${wsUrl}`, 'info');
+                
+                socket = new WebSocket(wsUrl);
+                
+                socket.onopen = function() {
+                    log('WebSocket connection established', 'success');
+                    
+                    // Send initial flow message
+                    socket.send(JSON.stringify({
+                        TYPE: 'flow'
+                    }));
+                };
+                
+                socket.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    log(`📥 Received: ${data.TYPE}`, 'info');
+                    
+                    if (data.TYPE === 'flow/components') {
+                        log(`✅ Components received: ${data.data ? data.data.length : 0} components`, 'success');
+                        if (data.data) {
+                            data.data.forEach(comp => {
+                                log(`  - ${comp.name} (${comp.group}) [${comp.author || 'native'}]`, 'info');
+                            });
+                        }
+                    }
+                };
+                
+                socket.onerror = function(error) {
+                    log(`WebSocket error: ${error}`, 'error');
+                };
+                
+                socket.onclose = function() {
+                    log('WebSocket connection closed', 'error');
+                };
+                
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html> 

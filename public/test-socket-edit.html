@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Test Socket Edit Integration</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Test Socket Edit Integration</h1>
+    
+    <div class="test-section info">
+        <h3>Test Instructions</h3>
+        <p>This page tests the socket-level message handling for API component editing.</p>
+        <p>1. Click "Connect to Flow Designer" to establish a WebSocket connection</p>
+        <p>2. Click "Test Component Read" to simulate reading an API component</p>
+        <p>3. Click "Test Component Save" to simulate saving an API component</p>
+        <p>4. Check the server logs for message handling</p>
+    </div>
+
+    <div class="test-section">
+        <h3>Connection Status</h3>
+        <div id="connection-status">Not connected</div>
+        <button onclick="connectToFlow()">Connect to Flow Designer</button>
+        <button onclick="disconnect()">Disconnect</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Component Tests</h3>
+        <button onclick="testComponentRead()">Test Component Read</button>
+        <button onclick="testComponentSave()">Test Component Save</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Results</h3>
+        <div id="test-results"></div>
+    </div>
+
+    <script>
+        let socket = null;
+        let messageId = 1;
+
+        function log(message, type = 'info') {
+            const results = document.getElementById('test-results');
+            const timestamp = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = `test-section ${type}`;
+            div.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function connectToFlow() {
+            try {
+                // Create a unique flow ID for testing
+                const flowId = 'test_' + Date.now();
+                const wsUrl = `ws://${window.location.host}/flows/${flowId}/`;
+                
+                log(`Connecting to: ${wsUrl}`, 'info');
+                
+                socket = new WebSocket(wsUrl);
+                
+                socket.onopen = function() {
+                    log('WebSocket connection established', 'success');
+                    document.getElementById('connection-status').textContent = 'Connected';
+                    
+                    // Send initial flow message
+                    socket.send(JSON.stringify({
+                        TYPE: 'flow'
+                    }));
+                };
+                
+                socket.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    log(`Received: ${JSON.stringify(data, null, 2)}`, 'info');
+                };
+                
+                socket.onerror = function(error) {
+                    log(`WebSocket error: ${error}`, 'error');
+                };
+                
+                socket.onclose = function() {
+                    log('WebSocket connection closed', 'error');
+                    document.getElementById('connection-status').textContent = 'Disconnected';
+                };
+                
+            } catch (error) {
+                log(`Connection error: ${error.message}`, 'error');
+            }
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.close();
+                socket = null;
+                log('Disconnected from WebSocket', 'info');
+            }
+        }
+
+        function testComponentRead() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                log('Not connected to WebSocket', 'error');
+                return;
+            }
+
+            const callbackId = 'callback_' + messageId++;
+            const message = {
+                TYPE: 'component_read',
+                id: 'test_socket_edit',
+                callback: callbackId
+            };
+
+            log(`Sending component_read: ${JSON.stringify(message)}`, 'info');
+            socket.send(JSON.stringify(message));
+        }
+
+        function testComponentSave() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                log('Not connected to WebSocket', 'error');
+                return;
+            }
+
+            const callbackId = 'callback_' + messageId++;
+            const testComponentHtml = `<script total>
+exports.id = 'test_socket_edit';
+exports.name = 'Test Socket Edit Updated';
+exports.icon = 'ti ti-edit';
+exports.author = 'API';
+exports.version = '1.1';
+exports.group = 'Test';
+exports.config = {};
+exports.inputs = [{ id: 'input', name: 'Input' }];
+exports.outputs = [{ id: 'output', name: 'Output' }];
+
+exports.make = function(instance, config) {
+    instance.message = function($) {
+        var data = $.data;
+        console.log('Updated component:', data);
+        instance.send(data);
+    };
+    instance.configure();
+};
+</script>
+
+<readme>
+# Test Socket Edit Updated
+
+This component was updated via socket message handling.
+
+</readme>
+
+<settings>
+<div class="padding">
+    <div class="b">Component Configuration</div>
+    <hr />
+    <div class="message message-info">
+        <i class="ti ti-info-circle"></i>
+        This component was updated via socket message handling.
+    </div>
+</div>
+</settings>
+
+<body>
+<header>
+    <i class="ti ti-edit"></i>Test Socket Edit Updated
+</header>
+<footer>Updated via socket</footer>
+</body>`;
+
+            const message = {
+                TYPE: 'component_save',
+                id: 'test_socket_edit',
+                data: testComponentHtml,
+                callback: callbackId
+            };
+
+            log(`Sending component_save: ${JSON.stringify({...message, data: '...'})}`, 'info');
+            socket.send(JSON.stringify(message));
+        }
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', function() {
+            if (socket) {
+                socket.close();
+            }
+        });
+    </script>
+</body>
+</html> 
