@@ -57,10 +57,19 @@ ON('init', function() {
 			Flow.db.variables = {};
 
 		Object.keys(Flow.db).wait(function(key, next) {
-			if (key === 'variables')
+			if (key === 'variables' || key === 'components')
 				next();
-			else
-				init(key, next);
+			else {
+				// Validate that this is actually a flow object before initializing
+				var flow = Flow.db[key];
+				if (flow && typeof flow === 'object' && flow.id && flow.name && flow.components) {
+					// This is a valid flow object
+					init(key, next);
+				} else {
+					console.log('⚠️ Skipping invalid flow object:', key, typeof flow);
+					next();
+				}
+			}
 		});
 
 	});
