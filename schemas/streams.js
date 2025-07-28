@@ -5,7 +5,7 @@ NEWACTION('Streams/query', {
 	action: function($) {
 		var arr = [];
 		for (var key in Flow.db) {
-			if (key !== 'variables') {
+			if (key !== 'variables' && key !== 'components') {
 				var item = Flow.db[key];
 				var instance = Flow.instances[key];
 				arr.push({ id: item.id, name: item.name, group: item.group, author: item.author, reference: item.reference, url: item.url, color: item.color, icon: item.icon, readme: item.readme, dtcreated: item.dtcreated, dtupdated: item.dtupdated, errors: false, size: item.size || 0, version: item.version, proxypath: item.proxypath ? (CONF.default_root ? (CONF.default_root + item.proxypath.substring(1)) : item.proxypath) : '', memory: item.memory, stats: instance ? instance.flow.stats : {} });
@@ -89,6 +89,33 @@ NEWACTION('Streams/save', {
 
 			TRANSFORM('flowstream.create', model, function(err, model) {
 				Flow.db[model.id] = model;
+				
+				// Register all global API components with the new flow
+				if (Flow.db.components) {
+					console.log(`🔧 Auto-registering API components with new flow: ${model.id}`);
+					let addedCount = 0;
+					
+					for (const [componentId, componentHtml] of Object.entries(Flow.db.components)) {
+						if (typeof componentHtml === 'string' && 
+							(componentHtml.includes('author = \'API\'') || 
+							 componentHtml.includes('author = \'API Test\'') ||
+							 componentHtml.includes('author = "API"') ||
+							 componentHtml.includes('author = "API Test"'))) {
+							
+							if (!model.components[componentId]) {
+								model.components[componentId] = componentHtml;
+								addedCount++;
+								console.log(`✅ Added API component to new flow: ${componentId} -> ${model.id}`);
+							}
+						}
+					}
+					
+					if (addedCount > 0) {
+						console.log(`💾 New flow ${model.id} created with ${addedCount} API components`);
+						Flow.emit('save');
+					}
+				}
+				
 				Flow.load(model, ERROR('FlowStream.init'));
 			});
 
