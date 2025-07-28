@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test API Components</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .component { border: 1px solid #ccc; margin: 10px; padding: 15px; border-radius: 5px; }
+        .component h3 { margin: 0 0 10px 0; color: #333; }
+        .component .icon { font-size: 24px; margin-right: 10px; }
+        .component .group { color: #666; font-size: 12px; }
+        .component .code { background: #f5f5f5; padding: 10px; border-radius: 3px; font-family: monospace; margin-top: 10px; }
+        .success { color: green; }
+        .error { color: red; }
+        button { padding: 10px 20px; margin: 5px; background: #007cba; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #005a87; }
+    </style>
+</head>
+<body>
+    <h1>API Component Test Page</h1>
+    
+    <div>
+        <h2>Test Component Registration</h2>
+        <button onclick="testRegister()">Register Test Component</button>
+        <button onclick="listComponents()">List Components</button>
+        <button onclick="refreshComponents()">Refresh Components</button>
+    </div>
+    
+    <div id="result"></div>
+    
+    <div id="components"></div>
+
+    <script>
+        async function testRegister() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<p>Registering component...</p>';
+            
+            try {
+                const response = await fetch('/api/flow/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: 'test_component_' + Date.now(),
+                        displayName: 'Test Component ' + new Date().toLocaleTimeString(),
+                        icon: 'ti ti-code',
+                        group: 'Test',
+                        color: '#ff6600',
+                        code: 'console.log("Test component executed:", data); instance.send(data);'
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    result.innerHTML = '<p class="success">✅ Component registered successfully!</p>';
+                    listComponents();
+                } else {
+                    result.innerHTML = '<p class="error">❌ Failed to register component</p>';
+                }
+            } catch (error) {
+                result.innerHTML = '<p class="error">❌ Error: ' + error.message + '</p>';
+            }
+        }
+        
+        async function listComponents() {
+            const componentsDiv = document.getElementById('components');
+            componentsDiv.innerHTML = '<p>Loading components...</p>';
+            
+            try {
+                const response = await fetch('/api/flow/components');
+                const data = await response.json();
+                
+                if (data.success && data.value.components) {
+                    const components = data.value.components;
+                    componentsDiv.innerHTML = '<h2>Registered Components (' + components.length + ')</h2>';
+                    
+                    components.forEach(comp => {
+                        const compDiv = document.createElement('div');
+                        compDiv.className = 'component';
+                        compDiv.innerHTML = `
+                            <h3><span class="icon">${comp.icon}</span>${comp.name}</h3>
+                            <div class="group">Group: ${comp.group} | ID: ${comp.id}</div>
+                            <div>Color: <span style="color: ${comp.color}">${comp.color}</span></div>
+                            <div>Author: ${comp.author} | Version: ${comp.version}</div>
+                            <div>Created: ${new Date(comp.dtcreated).toLocaleString()}</div>
+                        `;
+                        componentsDiv.appendChild(compDiv);
+                    });
+                } else {
+                    componentsDiv.innerHTML = '<p class="error">❌ Failed to load components</p>';
+                }
+            } catch (error) {
+                componentsDiv.innerHTML = '<p class="error">❌ Error: ' + error.message + '</p>';
+            }
+        }
+        
+        async function refreshComponents() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<p>Refreshing components...</p>';
+            
+            try {
+                const response = await fetch('/api/flow/refresh-components', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    result.innerHTML = '<p class="success">✅ Components refreshed successfully!</p>';
+                } else {
+                    result.innerHTML = '<p class="error">❌ Failed to refresh components</p>';
+                }
+            } catch (error) {
+                result.innerHTML = '<p class="error">❌ Error: ' + error.message + '</p>';
+            }
+        }
+        
+        // Load components on page load
+        listComponents();
+    </script>
+</body>
+</html> 

@@ -87,16 +87,6 @@ NEWACTION('Streams/save', {
 			if (!model.memory)
 				model.memory = CONF.flowstream_memory || 0;
 
-			// Register global components with the new flow
-			if (Flow.db.components) {
-				for (const [componentId, componentHtml] of Object.entries(Flow.db.components)) {
-					// Only copy actual components, not flow properties
-					if (typeof componentHtml === 'string' && componentHtml.includes('<script total>')) {
-						model.components[componentId] = componentHtml;
-					}
-				}
-			}
-
 			TRANSFORM('flowstream.create', model, function(err, model) {
 				Flow.db[model.id] = model;
 				Flow.load(model, ERROR('FlowStream.init'));

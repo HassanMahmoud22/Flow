@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Auto Refresh Components</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .log { background: #f8f9fa; padding: 10px; border-radius: 3px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Test Auto Refresh Components</h1>
+        
+        <div class="test-section info">
+            <h3>📋 Test Instructions</h3>
+            <p>This page tests the automatic component refresh feature. When you register a new component, it should automatically appear in the Flow Designer sidebar without needing to call the refresh endpoint.</p>
+        </div>
+
+        <div class="test-section">
+            <h3>1️⃣ Register New Component</h3>
+            <button onclick="registerComponent()">Register Test Component</button>
+            <div id="registerResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2️⃣ List All Components</h3>
+            <button onclick="listComponents()">List Components</button>
+            <div id="listResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3️⃣ Manual Refresh (for comparison)</h3>
+            <button onclick="refreshComponents()">Manual Refresh</button>
+            <div id="refreshResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4️⃣ Test Flow Designer Connection</h3>
+            <button onclick="testFlowDesigner()">Test Flow Designer</button>
+            <div id="designerResult" class="log"></div>
+        </div>
+
+        <div class="test-section info">
+            <h3>🎯 Expected Behavior</h3>
+            <p>After registering a component:</p>
+            <ul>
+                <li>✅ Component should be saved to database</li>
+                <li>✅ Component should appear in the list</li>
+                <li>✅ Component should automatically appear in Flow Designer sidebar</li>
+                <li>✅ No manual refresh should be needed</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let componentCounter = 0;
+
+        function log(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            element.textContent += logMessage;
+            element.scrollTop = element.scrollHeight;
+            
+            if (isError) {
+                element.style.backgroundColor = '#f8d7da';
+            } else {
+                element.style.backgroundColor = '#d4edda';
+            }
+        }
+
+        function clearLog(elementId) {
+            document.getElementById(elementId).textContent = '';
+            document.getElementById(elementId).style.backgroundColor = '#f8f9fa';
+        }
+
+        async function registerComponent() {
+            clearLog('registerResult');
+            log('registerResult', '🔄 Registering new component...');
+            
+            componentCounter++;
+            const componentData = {
+                name: `auto_test_${componentCounter}`,
+                displayName: `Auto Test ${componentCounter}`,
+                icon: 'ti ti-star',
+                group: 'Auto Test',
+                color: '#ff6600',
+                code: `console.log('Auto test component ${componentCounter}:', data); instance.send(data);`
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/api/flow/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(componentData)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    log('registerResult', `✅ Component registered successfully!`);
+                    log('registerResult', `📝 ID: ${result.value.id}`);
+                    log('registerResult', `📝 Name: ${result.value.component.name}`);
+                    log('registerResult', `📝 Group: ${result.value.component.group}`);
+                    log('registerResult', '🔄 Auto-refresh should have been triggered...');
+                } else {
+                    log('registerResult', `❌ Failed to register component: ${result.error}`, true);
+                }
+            } catch (error) {
+                log('registerResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function listComponents() {
+            clearLog('listResult');
+            log('listResult', '🔄 Fetching components list...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/flow/components`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    log('listResult', `✅ Found ${result.value.count} components:`);
+                    result.value.components.forEach(comp => {
+                        log('listResult', `  • ${comp.name} (${comp.id}) - ${comp.group}`);
+                    });
+                } else {
+                    log('listResult', `❌ Failed to list components: ${result.error}`, true);
+                }
+            } catch (error) {
+                log('listResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function refreshComponents() {
+            clearLog('refreshResult');
+            log('refreshResult', '🔄 Manually refreshing components...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/flow/refresh-components`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    log('refreshResult', `✅ Manual refresh completed!`);
+                    log('refreshResult', `📝 Refreshed ${result.value.count} components`);
+                } else {
+                    log('refreshResult', `❌ Failed to refresh: ${result.error}`, true);
+                }
+            } catch (error) {
+                log('refreshResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function testFlowDesigner() {
+            clearLog('designerResult');
+            log('designerResult', '🔄 Testing Flow Designer connection...');
+            
+            try {
+                // Simulate a Flow Designer connection by opening a WebSocket
+                const ws = new WebSocket('ws://localhost:8000/flows/test/');
+                
+                ws.onopen = function() {
+                    log('designerResult', '✅ WebSocket connected to Flow Designer');
+                    log('designerResult', '📤 Sending flow request...');
+                    ws.send(JSON.stringify({ TYPE: 'flow' }));
+                };
+                
+                ws.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    log('designerResult', `📥 Received: ${data.TYPE}`);
+                    
+                    if (data.TYPE === 'flow/components') {
+                        log('designerResult', `✅ Components received: ${data.data.length} components`);
+                        data.data.forEach(comp => {
+                            if (comp.group === 'Auto Test') {
+                                log('designerResult', `🎯 Found auto-test component: ${comp.name}`);
+                            }
+                        });
+                        ws.close();
+                    }
+                };
+                
+                ws.onerror = function(error) {
+                    log('designerResult', `❌ WebSocket error: ${error}`, true);
+                };
+                
+                ws.onclose = function() {
+                    log('designerResult', '🔌 WebSocket connection closed');
+                };
+                
+            } catch (error) {
+                log('designerResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        // Auto-refresh the components list every 5 seconds
+        setInterval(listComponents, 5000);
+    </script>
+</body>
+</html> 

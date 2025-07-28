@@ -57,7 +57,7 @@ ON('init', function() {
 			Flow.db.variables = {};
 
 		Object.keys(Flow.db).wait(function(key, next) {
-			if (key === 'variables' || key === 'components')
+			if (key === 'variables')
 				next();
 			else
 				init(key, next);
